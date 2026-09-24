@@ -1,0 +1,49 @@
+{
+  "area": "Sydney CBD and immediate surrounds, NSW",
+  "retailer_code": "coles",
+  "source_code": "google",
+  "max_stores": 10,
+  "concurrency": 1,
+  "request_interval_seconds": 2.0,
+  "timeout_seconds": 20.0,
+  "max_retries": 1,
+  "discovery": {
+    "sitemap_url": "https://www.coles.com.au/sitemap/sitemap-stores.xml",
+    "discovery_source": "official_store_sitemap",
+    "area_path_keywords": [
+      "world-square",
+      "central-wynyard",
+      "sydney-cbd-york-street",
+      "kings-cross",
+      "surry-hills",
+      "broadway",
+      "glebe",
+      "pyrmont",
+      "east-village",
+      "waterloo",
+      "alexandria"
+    ]
+  },
+  "store_pages": [
+    {
+      "name": "Coles World Square",
+      "url": "https://www.coles.com.au/find-stores/coles/nsw/world-square-710"
+    },
+    {
+      "name": "Coles Central Wynyard Express",
+      "url": "https://www.coles.com.au/find-stores/coles/nsw/central-wynyard-express-840"
+    },
+    {
+      "name": "Coles Local Sydney CBD - York Street",
+      "url": "https://www.coles.com.au/find-stores/coles-local/nsw/local-sydney-cbd-york-street-7689"
+    },
+    {
+      "name": "Coles Central Kings Cross",
+      "url": "https://www.coles.com.au/find-stores/coles/nsw/kings-cross-754"
+    },
+    {
+      "name": "Coles Surry Hills",
+      "url": "https://www.coles.com.au/find-stores/coles/nsw/surry-hills-7671"
+    }
+  ]
+}

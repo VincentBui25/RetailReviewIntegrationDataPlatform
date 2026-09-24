@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# Testing
+.pytest_cache/
+.test-tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+
+# Data artifacts (large crawl outputs, browser state)
+data/
+
+# Browser profiles, sessions, screenshots
+downloaded_files/
+archived_logs/
+latest_logs/
+*.lock
+
+# Node (upstream experiment dependencies)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

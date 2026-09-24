@@ -1,0 +1,9 @@
+{
+  "batch": 1,
+  "next": "batch-2",
+  "reviews": [
+    {"id": "g-100", "author": "A", "published_at": "2026-01-01", "rating": 5, "text": "Good range"},
+    {"id": "g-101", "author": "B", "published_at": "2026-01-02", "rating": 4, "text": "Convenient"}
+  ]
+}
+
