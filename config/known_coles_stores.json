@@ -1,0 +1,46 @@
+{
+  "stores": [
+    {
+      "retailer_code": "coles",
+      "retailer_store_id": "710",
+      "store_name": "Coles World Square",
+      "address": "650 George St, Sydney NSW 2000, Australia",
+      "suburb": "Sydney",
+      "postcode": "2000",
+      "latitude": -33.8777,
+      "longitude": 151.2068
+    },
+    {
+      "retailer_code": "coles",
+      "retailer_store_id": "840",
+      "store_name": "Coles Central Wynyard Express",
+      "address": "Wynyard St & Carrington St, Sydney NSW 2000, Australia",
+      "suburb": "Sydney",
+      "postcode": "2000"
+    },
+    {
+      "retailer_code": "coles",
+      "retailer_store_id": "7689",
+      "store_name": "Coles Local Sydney CBD - York Street",
+      "address": "68 York Street, Sydney NSW 2000, Australia",
+      "suburb": "Sydney",
+      "postcode": "2000"
+    },
+    {
+      "retailer_code": "coles",
+      "retailer_store_id": "754",
+      "store_name": "Coles Central Kings Cross",
+      "address": "82-94 Darlinghurst Rd, Potts Point NSW 2011, Australia",
+      "suburb": "Potts Point",
+      "postcode": "2011"
+    },
+    {
+      "retailer_code": "coles",
+      "retailer_store_id": "7671",
+      "store_name": "Coles Surry Hills",
+      "address": "4 Baptist Street, Redfern NSW 2016, Australia",
+      "suburb": "Redfern",
+      "postcode": "2016"
+    }
+  ]
+}
