@@ -53,6 +53,13 @@ RATING = "span[role='img'][aria-label*='star']"
 TEXT = ".wiI7pd, .MyEned"
 DATE = ".rsqaWe"
 OWNER_RESPONSE = ".CDe7pd .wiI7pd, .owner-response"
+REVIEW_URL = "a[href*='/maps/reviews/'], a[href*='review_id='], a[href*='reviewId=']"
+REVIEW_MEDIA = (
+    "button[jsaction*='reviewPhoto'] img, "
+    "button[jsaction*='pane.reviewPhoto'] img, "
+    "button[data-photo-index] img, "
+    ".KtCyie img, .KtCyie .Tya61d, button.Tya61d"
+)
 SCROLL_TO_END_SCRIPT = """
     const pane = arguments[0];
     const before = {

@@ -173,6 +173,11 @@ data/lake/google_maps_reviews/
 
 Parquet is the primary downstream review payload and append-only analytical history.
 
+Review-level media metadata remains part of the normalized payload: a direct
+review URL is stored when the review card exposes one, and review-attached image
+URLs are stored as a list. Image binaries are intentionally outside the current
+persistence scope and are never downloaded by the crawler.
+
 Relative source dates such as `3 months ago` remain in `review_date_raw`; the crawler does not invent an exact review timestamp.
 
 Change semantics are:

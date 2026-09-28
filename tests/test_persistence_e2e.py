@@ -8,3 +8,5 @@ def test_synthetic_persistence_pipeline_through_duckdb(tmp_path):
     assert result["parquet_row_count"] == 2
     assert result["change_types"] == ["INSERT", "UPDATE"]
     assert result["unique_event_identities"] == 2
+    assert "review_url" in result["duckdb_columns"]
+    assert "image_urls" in result["duckdb_columns"]

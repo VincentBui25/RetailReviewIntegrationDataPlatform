@@ -42,11 +42,15 @@ def run_validation(output_root: Path) -> dict[str, Any]:
         "google_maps", "synthetic-review-1", "synthetic-store-1",
         author="Synthetic Reviewer", rating=5.0, text="Original text",
         displayed_date="3 months ago",
+        review_url="https://www.google.com/maps/reviews/data=synthetic-review-1",
+        image_urls=["https://images.example/review-1.jpg"],
     )
     updated = Review(
         "google_maps", "synthetic-review-1", "synthetic-store-1",
         author="Synthetic Reviewer", rating=4.0, text="Updated text",
         displayed_date="3 months ago",
+        review_url="https://www.google.com/maps/reviews/data=synthetic-review-1",
+        image_urls=["https://images.example/review-1.jpg", "https://images.example/review-2.jpg"],
     )
 
     assert repository.upsert_review_state(original) is ReviewChange.INSERT
@@ -107,6 +111,11 @@ def run_validation(output_root: Path) -> dict[str, Any]:
 
     assert len(rows) == 2
     assert rows["change_type"].tolist() == ["INSERT", "UPDATE"]
+    assert rows["review_url"].tolist() == [original.review_url, updated.review_url]
+    assert [list(urls) for urls in rows["image_urls"]] == [
+        original.image_urls,
+        updated.image_urls,
+    ]
     event_identity_columns = [
         "run_id", "source", "source_review_id", "content_hash",
         "observed_at", "change_type",

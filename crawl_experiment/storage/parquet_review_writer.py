@@ -13,7 +13,7 @@ class ParquetReviewWriter:
     COLUMNS = (
         "run_id", "source", "source_review_id", "store_id", "reviewer_name",
         "rating", "review_text", "review_date_raw", "owner_response",
-        "observed_at", "content_hash", "change_type",
+        "review_url", "image_urls", "observed_at", "content_hash", "change_type",
     )
 
     def __init__(self, root: str | Path, run_id: str, crawl_date: str, *, batch_size: int = 500):
@@ -36,7 +36,8 @@ class ParquetReviewWriter:
             ("source_review_id", pa.string()), ("store_id", pa.string()),
             ("reviewer_name", pa.string()), ("rating", pa.float64()),
             ("review_text", pa.string()), ("review_date_raw", pa.string()),
-            ("owner_response", pa.string()), ("observed_at", pa.string()),
+            ("owner_response", pa.string()), ("review_url", pa.string()),
+            ("image_urls", pa.list_(pa.string())), ("observed_at", pa.string()),
             ("content_hash", pa.string()), ("change_type", pa.string()),
         ])
 

@@ -19,9 +19,14 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _normalized_image_urls(review: Review) -> list[str]:
+    return list(dict.fromkeys(url.strip() for url in review.image_urls if url.strip()))
+
+
 def review_content_hash(review: Review) -> str:
-    """Hash mutable review content, excluding run and observation metadata."""
+    """Hash mutable content; review URLs are lineage metadata, not content."""
     payload = {
+        "image_urls": sorted(_normalized_image_urls(review)),
         "owner_response": review.owner_response,
         "rating": review.rating,
         "review_text": review.text,
@@ -168,7 +173,9 @@ class ReviewRepository:
                     "source_review_id": review.source_review_id, "store_id": review.store_id,
                     "reviewer_name": review.author, "rating": review.rating,
                     "review_text": review.text, "review_date_raw": review.displayed_date,
-                    "owner_response": review.owner_response, "observed_at": observed_at,
+                    "owner_response": review.owner_response, "review_url": review.review_url,
+                    "image_urls": _normalized_image_urls(review),
+                    "observed_at": observed_at,
                     "content_hash": digest, "change_type": change.value,
                 }
                 event_id = hashlib.sha256(

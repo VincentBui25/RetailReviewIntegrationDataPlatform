@@ -27,6 +27,8 @@ class Review:
     displayed_date: str | None = None
     owner_response: str | None = None
     raw: dict[str, Any] = field(default_factory=dict, compare=False)
+    review_url: str | None = None
+    image_urls: list[str] = field(default_factory=list)
 
     @property
     def identity(self) -> tuple[str, str]:

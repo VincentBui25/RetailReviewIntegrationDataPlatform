@@ -161,3 +161,154 @@ def test_filename_collision_is_detected_instead_of_acknowledging_wrong_batch(tmp
     writer.write_batch([("event-a", payload)])
     with pytest.raises(RuntimeError, match="filename collision"):
         writer.write_batch([("event-b", payload)])
+
+
+def test_review_media_schema_hash_policy_and_outbox_replay(tmp_path):
+    repo = repository(tmp_path, batch_size=10)
+    original = Review(
+        "google_maps", "r1", "s1", text="one",
+        review_url="https://www.google.com/maps/reviews/data=first",
+        image_urls=[
+            "https://images.example/two.jpg",
+            "https://images.example/one.jpg",
+            "https://images.example/two.jpg",
+        ],
+    )
+    url_only_change = Review(
+        "google_maps", "r1", "s1", text="one",
+        review_url="https://www.google.com/maps/reviews/data=second",
+        image_urls=[
+            "https://images.example/one.jpg",
+            "https://images.example/two.jpg",
+        ],
+    )
+    image_change = Review(
+        "google_maps", "r1", "s1", text="one",
+        review_url=url_only_change.review_url,
+        image_urls=[
+            "https://images.example/one.jpg",
+            "https://images.example/two.jpg",
+            "https://images.example/three.jpg",
+        ],
+    )
+
+    assert repo.upsert_review_state(original) is ReviewChange.INSERT
+    assert review_content_hash(original) == review_content_hash(url_only_change)
+    assert repo.upsert_review_state(url_only_change) is ReviewChange.UNCHANGED
+    assert review_content_hash(image_change) != review_content_hash(original)
+    assert repo.upsert_review_state(image_change) is ReviewChange.UPDATE
+    repo.close()
+
+    payload, files = rows(tmp_path)
+    assert pq.read_schema(files[0]).field("review_url").type == pa.string()
+    assert pq.read_schema(files[0]).field("image_urls").type == pa.list_(pa.string())
+    assert [row["change_type"] for row in payload] == ["INSERT", "UPDATE"]
+    assert payload[0]["review_url"] == original.review_url
+    assert payload[0]["image_urls"] == [
+        "https://images.example/two.jpg",
+        "https://images.example/one.jpg",
+    ]
+    assert payload[1]["image_urls"] == image_change.image_urls
+
+
+def test_image_removal_or_replacement_emits_update_but_reordering_does_not(tmp_path):
+    repo = repository(tmp_path, batch_size=10)
+    original = Review(
+        "google_maps", "r1", "s1",
+        image_urls=["https://images.example/one.jpg", "https://images.example/two.jpg"],
+    )
+    reordered = Review(
+        "google_maps", "r1", "s1",
+        image_urls=["https://images.example/two.jpg", "https://images.example/one.jpg"],
+    )
+    removed = Review(
+        "google_maps", "r1", "s1",
+        image_urls=["https://images.example/one.jpg"],
+    )
+    replaced = Review(
+        "google_maps", "r1", "s1",
+        image_urls=["https://images.example/three.jpg"],
+    )
+
+    assert repo.upsert_review_state(original) is ReviewChange.INSERT
+    assert repo.upsert_review_state(reordered) is ReviewChange.UNCHANGED
+    assert repo.upsert_review_state(removed) is ReviewChange.UPDATE
+    assert repo.upsert_review_state(replaced) is ReviewChange.UPDATE
+    repo.close()
+
+    payload, _ = rows(tmp_path)
+    assert [row["change_type"] for row in payload] == ["INSERT", "UPDATE", "UPDATE"]
+    assert payload[0]["image_urls"] == original.image_urls
+    assert payload[1]["image_urls"] == removed.image_urls
+    assert payload[2]["image_urls"] == replaced.image_urls
+
+
+def test_current_run_change_counters_are_mutually_exclusive(tmp_path):
+    first_run = repository(tmp_path, run_id="run-1", batch_size=1000)
+    reviews = [
+        Review("google_maps", f"r{index}", "s1", text=f"review {index}")
+        for index in range(60)
+    ]
+    for review in reviews:
+        first_run.upsert_review_state(review)
+    assert first_run.stats()["new_reviews_written"] == 60
+    assert first_run.stats()["changed_reviews_written"] == 0
+    assert first_run.stats()["unchanged_reviews_seen"] == 0
+    first_run.close()
+
+    second_run = repository(tmp_path, run_id="run-2", batch_size=1000)
+    for review in reviews:
+        second_run.upsert_review_state(review)
+    assert second_run.stats()["new_reviews_written"] == 0
+    assert second_run.stats()["changed_reviews_written"] == 0
+    assert second_run.stats()["unchanged_reviews_seen"] == 60
+    second_run.close()
+
+    mixed_run = repository(tmp_path, run_id="run-3", batch_size=1000)
+    for review in reviews[:20]:
+        mixed_run.upsert_review_state(review)
+    for review in reviews[20:30]:
+        mixed_run.upsert_review_state(
+            Review(review.source, review.source_review_id, review.store_id, text=f"{review.text} edited")
+        )
+    for index in range(60, 65):
+        mixed_run.upsert_review_state(
+            Review("google_maps", f"r{index}", "s1", text=f"review {index}")
+        )
+    stats = mixed_run.stats()
+    assert stats["new_reviews_written"] == 5
+    assert stats["changed_reviews_written"] == 10
+    assert stats["unchanged_reviews_seen"] == 20
+    assert stats["parquet_rows_written"] == 0
+    mixed_run.close()
+
+
+def test_old_and_new_parquet_schema_union_by_name(tmp_path):
+    duckdb = pytest.importorskip("duckdb")
+    old_path = tmp_path / "crawl_date=2026-09-26" / "run_id=old" / "part-old.parquet"
+    old_path.parent.mkdir(parents=True)
+    old_schema = pa.schema([
+        field for field in ParquetReviewWriter.schema()
+        if field.name not in {"review_url", "image_urls"}
+    ])
+    pq.write_table(pa.Table.from_pylist([{
+        field.name: None for field in old_schema
+    }], schema=old_schema), old_path)
+
+    writer = ParquetReviewWriter(tmp_path, "new", "2026-09-27")
+    payload = {column: None for column in writer.COLUMNS}
+    payload.update({
+        "run_id": "new", "source": "google_maps", "source_review_id": "r1",
+        "image_urls": ["https://images.example/one.jpg"], "change_type": "INSERT",
+    })
+    writer.write_batch([("event-new", payload)])
+
+    connection = duckdb.connect(":memory:")
+    try:
+        result = connection.execute(
+            "SELECT review_url, image_urls FROM read_parquet(?, union_by_name = true) ORDER BY run_id",
+            [(tmp_path / "**" / "*.parquet").as_posix()],
+        ).fetchall()
+    finally:
+        connection.close()
+    assert result == [(None, ["https://images.example/one.jpg"]), (None, None)]

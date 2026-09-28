@@ -139,6 +139,8 @@ rating
 review_text
 review_date_raw
 owner_response
+review_url
+image_urls
 observed_at
 content_hash
 change_type
@@ -158,6 +160,11 @@ UPDATE
 Each review is identified by its stable source review ID.
 
 A deterministic SHA-256 content hash is calculated from mutable review content.
+
+When Google Maps exposes them within a review card, the normalized payload also
+captures a direct review URL and the review-attached image URLs. Image URL order
+is deterministic and duplicates are removed. The crawler records media metadata
+only; it does not download or persist image binaries.
 
 The current behavior is:
 

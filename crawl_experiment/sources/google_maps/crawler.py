@@ -330,9 +330,14 @@ class GoogleMapsCrawler:
     ) -> tuple[float, float]:
         extract_seconds = 0.0
         persist_seconds = 0.0
+        processed_ids: set[str] = set()
         for card in cards:
             review_id = card.get_attribute(selectors.REVIEW_ID_ATTRIBUTE)
-            if not review_id or review_id not in new_ids:
+            if (
+                not review_id
+                or review_id not in new_ids
+                or review_id in processed_ids
+            ):
                 continue
             try:
                 extract_started = self.clock()
@@ -340,6 +345,7 @@ class GoogleMapsCrawler:
                 extract_seconds += self.clock() - extract_started
                 persist_started = self.clock()
                 change = self.reviews.upsert_review_state(review)
+                processed_ids.add(review_id)
                 emitted = change.emitted
                 result.reviews_written += int(emitted)
                 self._activity(
