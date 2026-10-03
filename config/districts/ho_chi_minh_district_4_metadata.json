@@ -1,0 +1,21 @@
+{
+  "district_id": "hcm_district_4_historic",
+  "district_name": "Quận 4, Thành phố Hồ Chí Minh, Việt Nam",
+  "source_name": "OpenStreetMap via Nominatim",
+  "source_url": "https://nominatim.openstreetmap.org/search?q=Qu%E1%BA%ADn+4%2C+Th%C3%A0nh+ph%E1%BB%91+H%E1%BB%93+Ch%C3%AD+Minh%2C+Vi%E1%BB%87t+Nam&format=geojson&polygon_geojson=1&addressdetails=1&extratags=1&namedetails=1&limit=5",
+  "source_object_url": "https://www.openstreetmap.org/relation/2778323",
+  "osm_relation_id": 2778323,
+  "admin_level": "6 (historic was:admin_level)",
+  "historic_end_date": "2025-06-30",
+  "retrieved_at": "2026-09-30T16:29:37.061693+00:00",
+  "crs": "EPSG:4326 (GeoJSON RFC 7946)",
+  "license_attribution": "© OpenStreetMap contributors; Open Database License (ODbL)",
+  "validation": {
+    "geometry_type": "Polygon",
+    "geometry_valid": true,
+    "crs_is_wgs84": true,
+    "district_name_matches": true,
+    "area_non_zero": true,
+    "approximate_area_km2": 4.180570139648437
+  }
+}
