@@ -14,6 +14,8 @@ venv/
 # Testing
 .pytest_cache/
 .test-tmp/
+pytest-temp-*/
+feature-*/
 
 # IDE
 .vscode/
@@ -26,6 +28,18 @@ venv/
 
 # Data artifacts (large crawl outputs, browser state)
 data/
+/output/smoke_test/
+/output/crawler_benchmark/
+experiments/**/output/
+
+# Local crawler state and generated data
+*.sqlite
+*.sqlite3
+*.db
+**/checkpoints/
+**/logs/
+*.log
+*.parquet
 
 # Browser profiles, sessions, screenshots
 downloaded_files/
