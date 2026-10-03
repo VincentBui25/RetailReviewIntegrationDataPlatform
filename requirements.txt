@@ -2,3 +2,4 @@ crawlee>=1.10,<2
 seleniumbase>=4,<5
 pyarrow>=17
 shapely>=2.1,<3
+psutil>=5.9
