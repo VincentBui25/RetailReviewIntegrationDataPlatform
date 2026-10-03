@@ -95,6 +95,13 @@ class ReviewRepository:
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY(run_id, store_id)
             );
+            CREATE TABLE IF NOT EXISTS place_incremental_state(
+                place_id TEXT PRIMARY KEY,
+                last_successful_incremental_at TEXT,
+                newest_review_id_seen TEXT,
+                newest_review_time_seen TEXT,
+                last_incremental_run_id TEXT
+            );
             CREATE VIEW IF NOT EXISTS reviews AS
             SELECT source, source_review_id, store_id,
                    NULL AS author, NULL AS rating, NULL AS text,
@@ -103,8 +110,16 @@ class ReviewRepository:
             FROM review_state;
             """
         )
+        for column, definition in (("miss_count", "INTEGER NOT NULL DEFAULT 0"), ("is_active", "INTEGER NOT NULL DEFAULT 1")):
+            try:
+                self._db.execute(f"ALTER TABLE review_state ADD COLUMN {column} {definition}")
+            except sqlite3.OperationalError:
+                pass
         self._db.commit()
         self.last_change_type: str | None = None
+        self._reactivated_ids: set[str] = set()
+        self._reactivation_miss_counts: dict[str, int] = {}
+        self._observed_previous: dict[str, tuple[int, bool]] = {}
         self.new_reviews_written = 0
         self.changed_reviews_written = 0
         self.unchanged_reviews_seen = 0
@@ -113,6 +128,20 @@ class ReviewRepository:
         if self.parquet_writer is not None:
             self.flush()
 
+    def get_incremental_state(self, place_id):
+        with self._lock:
+            row=self._db.execute('SELECT * FROM place_incremental_state WHERE place_id=?',(place_id,)).fetchone()
+            return dict(row) if row else None
+
+    def save_incremental_state(self, place_id, newest_id, newest_time, successful):
+        with self._lock, self._db:
+            self._db.execute('''INSERT INTO place_incremental_state VALUES(?,?,?,?,?)
+                ON CONFLICT(place_id) DO UPDATE SET
+                last_successful_incremental_at=COALESCE(excluded.last_successful_incremental_at,last_successful_incremental_at),
+                newest_review_id_seen=COALESCE(excluded.newest_review_id_seen,newest_review_id_seen),
+                newest_review_time_seen=CASE WHEN excluded.newest_review_id_seen IS NULL THEN newest_review_time_seen ELSE excluded.newest_review_time_seen END,
+                last_incremental_run_id=excluded.last_incremental_run_id''',
+                (place_id,self.clock() if successful else None,newest_id,newest_time,self.run_id))
     def exists(self, source: str, source_review_id: str) -> bool:
         return self.get_review_state(source, source_review_id) is not None
 
@@ -141,6 +170,48 @@ class ReviewRepository:
     def get_known_review_ids(self, ids: Iterable[str], source: str = "google_maps") -> set[str]:
         return self.batch_lookup_known_ids(source, ids)
 
+    def reconciliation_candidates(self, store_id, limit=100, source="google_maps"):
+        rows=self._db.execute("SELECT * FROM review_state WHERE store_id=? AND source=? ORDER BY last_seen_at DESC, source_review_id DESC LIMIT ?",(store_id,source,limit)).fetchall()
+        return [dict(row) for row in rows]
+
+    def mark_reconciliation_seen(self, source, review_id):
+        with self._lock,self._db:
+            self._db.execute("UPDATE review_state SET miss_count=0,is_active=1 WHERE source=? AND source_review_id=?",(source,review_id))
+
+    def mark_reconciliation_missing(self, source, review_id, threshold=3):
+        with self._lock,self._db:
+            row=self._db.execute("SELECT miss_count FROM review_state WHERE source=? AND source_review_id=?",(source,review_id)).fetchone()
+            if not row:return None
+            count=int(row[0])+1; active=count<threshold
+            self._db.execute("UPDATE review_state SET miss_count=?,is_active=? WHERE source=? AND source_review_id=?",(count,int(active),source,review_id))
+            return count,active
+
+    def set_reconciliation_state(self, place_id, run_id, count):
+        with self._lock,self._db:
+            self._db.execute("CREATE TABLE IF NOT EXISTS place_reconciliation_state(place_id TEXT PRIMARY KEY,last_reconciliation_at TEXT,last_reconciliation_run_id TEXT,last_reconciliation_review_count INTEGER NOT NULL DEFAULT 0)")
+            self._db.execute("INSERT INTO place_reconciliation_state VALUES(?,?,?,?) ON CONFLICT(place_id) DO UPDATE SET last_reconciliation_at=excluded.last_reconciliation_at,last_reconciliation_run_id=excluded.last_reconciliation_run_id,last_reconciliation_review_count=excluded.last_reconciliation_review_count",(place_id,self.clock(),run_id,count))
+
+    def get_reconciliation_state(self, place_id):
+        row=self._db.execute("SELECT * FROM place_reconciliation_state WHERE place_id=?",(place_id,)).fetchone()
+        return dict(row) if row else None
+
+    def durable_review_count(self, source="google_maps"):
+        row = self._db.execute("SELECT COUNT(*) FROM review_state WHERE source=?", (source,)).fetchone()
+        return int(row[0])
+
+    def consume_reactivation(self, review_id):
+        with self._lock:
+            if review_id in self._reactivated_ids:
+                self._reactivated_ids.remove(review_id)
+                return True
+        return False
+
+    def reactivation_previous_miss_count(self, review_id):
+        return self._reactivation_miss_counts.pop(review_id, 0)
+
+    def consume_observed_previous(self, review_id):
+        return self._observed_previous.pop(review_id, None)
+
     def upsert_review_state(self, review: Review, observed_at: str | None = None) -> ReviewChange:
         digest = review_content_hash(review)
         observed_at = observed_at or self.clock()
@@ -156,17 +227,26 @@ class ReviewRepository:
                 if current[0] != digest
                 else ReviewChange.UNCHANGED
             )
+            was_inactive = False
+            if current is not None:
+                active = self._db.execute("SELECT is_active,miss_count FROM review_state WHERE source=? AND source_review_id=?", review.identity).fetchone()
+                was_inactive = active is not None and int(active[0]) == 0
+                if active is not None:
+                    self._observed_previous[review.source_review_id] = (int(active[1]), not was_inactive)
             if current is None:
                 self._db.execute(
-                    "INSERT INTO review_state VALUES(?,?,?,?,?,?,?,?)",
+                    "INSERT INTO review_state (source,source_review_id,store_id,content_hash,first_seen_at,last_seen_at,first_seen_run_id,last_seen_run_id,miss_count,is_active) VALUES(?,?,?,?,?,?,?,?,0,1)",
                     (*review.identity, review.store_id, digest, observed_at, observed_at, self.run_id, self.run_id),
                 )
             else:
                 self._db.execute(
                     """UPDATE review_state SET store_id=?, content_hash=?, last_seen_at=?,
-                       last_seen_run_id=? WHERE source=? AND source_review_id=?""",
+                       last_seen_run_id=?,miss_count=0,is_active=1 WHERE source=? AND source_review_id=?""",
                     (review.store_id, digest, observed_at, self.run_id, *review.identity),
                 )
+                if was_inactive:
+                    self._reactivated_ids.add(review.source_review_id)
+                    self._reactivation_miss_counts[review.source_review_id] = int(active[1]) if active is not None else 0
             if change.emitted and self.parquet_writer is not None:
                 payload = {
                     "run_id": self.run_id, "source": review.source,
@@ -216,7 +296,6 @@ class ReviewRepository:
                    metadata_json=excluded.metadata_json, updated_at=excluded.updated_at""",
                 (self.run_id, store_id, json.dumps(metadata, sort_keys=True), observed_at),
             )
-
     def get_checkpoint_metadata(self, run_id: str, store_id: str) -> dict[str, Any] | None:
         row = self._db.execute(
             "SELECT metadata_json FROM checkpoint_metadata WHERE run_id=? AND store_id=?",

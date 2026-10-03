@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -27,13 +28,15 @@ from crawl_experiment.storage.checkpoint_repository import (
     Checkpoint,
     CheckpointRepository,
 )
-from crawl_experiment.storage.review_repository import ReviewRepository
+from crawl_experiment.storage.review_repository import ReviewRepository, ReviewChange
 
 from . import selectors
 from .extractor import ReviewExtractor
 from .navigator import GoogleMapsNavigator
 from .paginator import ReviewPaginator
 from .review_surface import ReviewSurface, ReviewSurfaceState
+from crawl_experiment.orchestration.review_incremental import IncrementalWindow
+from crawl_experiment.orchestration.review_reconciliation import ReconciliationWindow
 
 
 class GoogleMapsCrawler:
@@ -54,6 +57,7 @@ class GoogleMapsCrawler:
         scroll_metrics_path: str | Path | None = None,
         review_id_trace_path: str | Path | None = None,
         activity_observer: Callable[[str, dict], None] | None = None,
+        scroll_observer: Callable[[dict], None] | None = None,
     ):
         self.reviews = reviews
         self.checkpoints = checkpoints
@@ -67,6 +71,7 @@ class GoogleMapsCrawler:
         self.scroll_metrics_path = Path(scroll_metrics_path) if scroll_metrics_path else None
         self.review_id_trace_path = Path(review_id_trace_path) if review_id_trace_path else None
         self.activity_observer = activity_observer
+        self.scroll_observer = scroll_observer
         self._browser_warm_up_completed_at: float | None = None
         self._artifact_lock = Lock()
 
@@ -81,6 +86,8 @@ class GoogleMapsCrawler:
         sort_newest=True,
         elapsed_offset_seconds: float = 0.0,
         warm_up: bool = True,
+        incremental_config=None,
+        reconciliation_config=None,
     ) -> CrawlResult:
         started_monotonic = self.clock()
         elapsed_for_store = lambda: elapsed_offset_seconds + (
@@ -92,6 +99,10 @@ class GoogleMapsCrawler:
             started_at=self.wall_clock(),
             configured_max_scrolls=self.max_scrolls,
         )
+        incremental=IncrementalWindow(self.reviews,store.id,incremental_config) if incremental_config else None
+        reconciliation=ReconciliationWindow(self.reviews,store.id,reconciliation_config) if reconciliation_config else None
+        if incremental and not sort_newest:
+            raise ValueError('Incremental crawl requires Newest sorting')
         self._checkpoint(
             result, "browser_started", elapsed_seconds=elapsed_offset_seconds
         )
@@ -211,7 +222,7 @@ class GoogleMapsCrawler:
             paginator = ReviewPaginator(
                 driver,
                 review_pane,
-                max_scrolls=self.max_scrolls,
+                max_scrolls=min(self.max_scrolls,(incremental_config or reconciliation_config).max_scrolls) if (incremental or reconciliation) else self.max_scrolls,
                 idle_limit=self.idle_limit,
                 deadline=self.clock() + self.timeout_seconds,
                 clock=self.clock,
@@ -243,9 +254,9 @@ class GoogleMapsCrawler:
                     new_ids.discard("")
                 self._trace_review_ids(store.id, new_ids, paginator.state.scroll_count)
                 extract_ms, persist_ms = self._extract_new_reviews(
-                    cards, store.id, extractor, result, new_ids
+                    cards, store.id, extractor, result, new_ids, incremental, reconciliation
                 )
-                result.reviews_seen = len(paginator.state.seen_ids)
+                result.reviews_seen = incremental.metrics['reviews_examined'] if incremental else len(paginator.state.seen_ids)
                 result.scroll_count = paginator.state.scroll_count
                 elapsed = elapsed_for_store()
                 idle_count = getattr(paginator.state, "idle_count", 0)
@@ -276,7 +287,9 @@ class GoogleMapsCrawler:
                     new_reviews=new_ids_in_last_observation,
                     idle_count=idle_count,
                 )
-                reason = paginator.stop_reason()
+                reason = 'known_streak_boundary' if incremental and incremental.stopped else paginator.stop_reason()
+                if reconciliation and len(paginator.state.seen_ids)>=reconciliation.config.recent_review_limit:
+                    reason='reconciliation_window'
                 if reason:
                     result.stop_reason = reason
                     break
@@ -298,6 +311,8 @@ class GoogleMapsCrawler:
                     "scroll_top_after": diagnostics.get("scroll_top_after"),
                     "scroll_top_changed": diagnostics.get("scroll_top_changed"),
                     "wait_for_growth_ms": diagnostics.get("wait_for_growth_ms", 0.0),
+                    "scroll_action_elapsed_ms": diagnostics.get("scroll_action_elapsed_ms"),
+                    "at_end": diagnostics.get("at_end"),
                     "_started": scroll_started,
                 }
 
@@ -314,6 +329,20 @@ class GoogleMapsCrawler:
         finally:
             result.finished_at = self.wall_clock()
             result.elapsed_seconds = max(0.0, elapsed_for_store())
+            if incremental:
+                reason={'known_streak_boundary':'KNOWN_STREAK_BOUNDARY','max_scrolls':'MAX_SCROLLS',
+                    'natural_end':'END_OF_LIST','advertised_count':'END_OF_LIST',
+                    'stalled':'ERROR','timeout':'PARTIAL_LIMIT'}.get(result.stop_reason,'PARTIAL_LIMIT' if result.stop_reason else
+                    'END_OF_LIST' if result.status==CrawlStatus.NO_REVIEWS else 'ERROR')
+                result.incremental_metrics=incremental.finish(reason,result.scroll_count,result.elapsed_seconds,
+                    successful=reason in ('KNOWN_STREAK_BOUNDARY','END_OF_LIST') and not result.parse_errors)
+                self._activity('incremental_finished',store_id=store.id,**result.incremental_metrics)
+            if reconciliation:
+                reconciliation_reason={'reconciliation_window':'RECONCILIATION_WINDOW',
+                    'natural_end':'INCOMPLETE_COVERAGE','max_scrolls':'INCOMPLETE_COVERAGE'}.get(
+                        result.stop_reason,'INCOMPLETE_COVERAGE')
+                result.reconciliation_metrics=reconciliation.finish(reconciliation_reason,result.scroll_count,result.elapsed_seconds)
+                self._activity('reconciliation_finished',store_id=store.id,**result.reconciliation_metrics)
             self._checkpoint(
                 result,
                 result.failure_stage,
@@ -327,6 +356,8 @@ class GoogleMapsCrawler:
         extractor: ReviewExtractor,
         result: CrawlResult,
         new_ids: set[str],
+        incremental=None,
+        reconciliation=None,
     ) -> tuple[float, float]:
         extract_seconds = 0.0
         persist_seconds = 0.0
@@ -345,6 +376,11 @@ class GoogleMapsCrawler:
                 extract_seconds += self.clock() - extract_started
                 persist_started = self.clock()
                 change = self.reviews.upsert_review_state(review)
+                if incremental:
+                    classification=incremental.observed(review,change)
+                    self._activity('incremental_review_classified',store_id=store_id,review_id=review_id,classification=classification)
+                if reconciliation:
+                    reconciliation.observed(review_id,{ReviewChange.INSERT:'NEW',ReviewChange.UPDATE:'UPDATED',ReviewChange.UNCHANGED:'UNCHANGED'}[change])
                 processed_ids.add(review_id)
                 emitted = change.emitted
                 result.reviews_written += int(emitted)
@@ -355,8 +391,12 @@ class GoogleMapsCrawler:
                     persisted=int(emitted),
                 )
                 persist_seconds += self.clock() - persist_started
+                if incremental and incremental.stopped:
+                    break
             except ReviewParseError:
                 result.parse_errors += 1
+                if incremental:
+                    incremental.streak=0
         return extract_seconds * 1000, persist_seconds * 1000
 
     def _activity(self, event: str, **details) -> None:
@@ -400,6 +440,8 @@ class GoogleMapsCrawler:
             )
         if reason == "max_scrolls":
             return CrawlStatus.PARTIAL_LIMIT
+        if reason == "reconciliation_window":
+            return CrawlStatus.COMPLETE
         if reason == "stalled":
             return CrawlStatus.PAGINATION_STALLED
         if reason in {"natural_end", "advertised_count"}:
@@ -472,6 +514,11 @@ class GoogleMapsCrawler:
     def _write_scroll_metric(self, value: dict) -> None:
         value.pop("_started", None)
         self._append_json_line(self.scroll_metrics_path, value)
+        if self.scroll_observer:
+            try:
+                self.scroll_observer(dict(value))
+            except Exception:
+                logging.getLogger(__name__).warning("Scroll metrics observer failed", exc_info=True)
 
     def _trace_review_ids(
         self, store_id: str, review_ids: set[str], discovered_scroll: int

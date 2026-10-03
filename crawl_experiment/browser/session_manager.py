@@ -24,10 +24,15 @@ class BrowserSessionManager:
         browser_factory: BrowserFactory,
         warm_up: Callable[[Any], None] | None = None,
         logger: logging.Logger | None = None,
+        event_observer: Callable[[dict[str, Any]], None] | None = None,
+        *,
+        worker_id: str = "worker-1",
     ):
         self.browser_factory = browser_factory
         self.warm_up = warm_up
         self.logger = logger or logging.getLogger(__name__)
+        self.event_observer = event_observer
+        self.worker_id = worker_id
         self.current: ManagedBrowser | None = None
         self._sequence = 0
         self._closed = False
@@ -74,6 +79,9 @@ class BrowserSessionManager:
         managed, self.current = self.current, None
         if managed is None:
             return
+        if reason == "session_lost":
+            self._event("browser_crash", managed, store_id=store_id, attempt=attempt,
+                        reason="unexpected_webdriver_session_loss")
         self._event(
             "browser_restart_reason",
             managed,
@@ -96,6 +104,8 @@ class BrowserSessionManager:
     def close(self) -> None:
         if self._closed:
             return
+        if self.event_observer and self.current is not None and not self.is_alive():
+            self._event("browser_crash", self.current, reason="unexpected_session_loss_before_shutdown")
         self.retire("run_shutdown")
         self._closed = True
 
@@ -125,6 +135,8 @@ class BrowserSessionManager:
             self._event(
                 "browser_created", managed, store_id=store_id, attempt=attempt
             )
+            if self.browsers_created > 1:
+                self._event("browser_restarted", managed, store_id=store_id, attempt=attempt)
             if self.warm_up:
                 self._event(
                     "warm_up_started", managed, store_id=store_id, attempt=attempt
@@ -164,10 +176,17 @@ class BrowserSessionManager:
         reason: str | None = None,
     ) -> None:
         self.logger.info(
-            "event=%s browser_instance_id=%s store_id=%s attempt=%s reason=%s",
+            "event=%s worker_id=%s browser_instance_id=%s store_id=%s attempt=%s reason=%s",
             event,
+            self.worker_id,
             managed.instance_id,
             store_id or "-",
             attempt if attempt is not None else "-",
             reason or "-",
         )
+        if self.event_observer:
+            try:
+                self.event_observer(dict(event=event, worker_id=self.worker_id, browser_instance_id=managed.instance_id,
+                                         store_id=store_id, attempt=attempt, reason=reason))
+            except Exception:  # Metrics must never alter browser lifecycle.
+                self.logger.warning("Browser metrics observer failed", exc_info=True)

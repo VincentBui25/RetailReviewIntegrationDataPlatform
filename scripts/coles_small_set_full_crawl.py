@@ -63,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=[store.id for store in STORES],
     )
     parser.add_argument("--validation-mode", action="store_true")
+    parser.add_argument('--crawl-mode',choices=('REVIEW_FULL','REVIEW_INCREMENTAL','REVIEW_RECONCILIATION'),default='REVIEW_FULL')
+    parser.add_argument('--known-streak-threshold',type=int,default=5)
+    parser.add_argument('--incremental-max-scrolls',type=int,default=20)
+    parser.add_argument('--recent-review-limit',type=int,default=100)
+    parser.add_argument('--deletion-miss-threshold',type=int,default=3)
     return parser
 
 
@@ -79,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"store-limit must be between 1 and {len(STORES)}")
     if args.timeout_seconds <= 0 or args.max_scrolls <= 0:
         raise SystemExit("timeout-seconds and max-scrolls must be positive")
+    from crawl_experiment.orchestration.review_incremental import IncrementalConfig
+    from crawl_experiment.orchestration.review_reconciliation import ReconciliationConfig
+    if args.known_streak_threshold<=0 or args.incremental_max_scrolls<=0:
+        raise SystemExit('Incremental threshold and max-scrolls must be positive')
     return run_full_crawl(
         select_stores(args),
         output_root=OUTPUT_ROOT,
@@ -88,6 +97,9 @@ def main(argv: list[str] | None = None) -> int:
         max_scrolls=args.max_scrolls,
         concurrency=CONCURRENCY,
         validation_mode=args.validation_mode,
+        crawl_mode=args.crawl_mode,
+        incremental_config=IncrementalConfig(args.known_streak_threshold,args.incremental_max_scrolls),
+        reconciliation_config=ReconciliationConfig(args.recent_review_limit,args.incremental_max_scrolls,args.deletion_miss_threshold),
     )
 
 

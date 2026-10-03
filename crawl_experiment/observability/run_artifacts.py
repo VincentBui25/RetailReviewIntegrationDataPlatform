@@ -162,6 +162,12 @@ class CrawlArtifacts:
                 retryable=classification.retryable,
             )
 
+    def on_access_deferred(self, store: Store, metrics: dict) -> None:
+        """Deferred access is scheduler state, not a terminal-error DLQ entry."""
+        timing=self._finish_timing(store)
+        self._write_store(store,status=metrics['job_status'],final_status=metrics['job_status'],
+            terminal=True,dlq=False,**metrics,**timing)
+
     def on_terminal_failure(
         self, store: Store, decision: RetryDecision, attempt_number: int, error: Exception
     ) -> None:
@@ -340,19 +346,37 @@ def build_summary(
                 "checkpoint": str(run_directory / "checkpoints" / f"{store.id}.json"),
             }
         )
-    complete_count = sum(item["status"] == CrawlStatus.COMPLETE for item in store_summaries)
+    success_statuses = {CrawlStatus.COMPLETE, CrawlStatus.NO_REVIEWS, CrawlStatus.SUCCESS_DOM,
+                        CrawlStatus.SUCCESS_NETWORK, CrawlStatus.SUCCESS_HYBRID}
+    deferred_statuses = {CrawlStatus.DEFERRED_LIMITED, CrawlStatus.DEFERRED_UNKNOWN}
+    complete_count = sum(item["status"] in success_statuses for item in store_summaries)
     partial_count = sum(item["status"] == CrawlStatus.PARTIAL_TIMEOUT for item in store_summaries)
     partial_limit_count = sum(item["status"] == CrawlStatus.PARTIAL_LIMIT for item in store_summaries)
     failed_ids = [
         item["id"] for item in store_summaries
-        if item["status"] not in {
-            CrawlStatus.COMPLETE, CrawlStatus.PARTIAL_TIMEOUT,
-            CrawlStatus.PARTIAL_LIMIT, CrawlStatus.NO_REVIEWS,
-        }
+        if item["status"] not in success_statuses | deferred_statuses |
+           {CrawlStatus.PARTIAL_TIMEOUT, CrawlStatus.PARTIAL_LIMIT}
     ]
     dlq_path = run_directory / "dlq.jsonl"
     dlq_count = sum(1 for line in dlq_path.read_text(encoding="utf-8").splitlines() if line.strip()) if dlq_path.exists() else 0
     total_elapsed_seconds = max(0.0, total_elapsed_seconds)
+    reconciliation_metrics = {}
+    metrics_path = run_directory / "incremental_metrics.json"
+    if metrics_path.exists():
+        raw_metrics = read_json(metrics_path)
+        for value in raw_metrics.values():
+            if isinstance(value, dict) and "reconciliation_reviews_examined" in value:
+                for key in (
+                    "reconciliation_reviews_examined", "reconciliation_window_size",
+                    "expected_reviews_in_window", "observed_reviews_in_window",
+                    "missed_new_reviews", "updated_reviews", "verified_unchanged_reviews",
+                    "missing_reviews", "possibly_deleted_reviews", "reactivated_reviews",
+                    "miss_count_incremented", "parquet_rows_written",
+                    "durable_review_count_total", "stop_reason",
+                ):
+                    if key in value:
+                        reconciliation_metrics[key] = reconciliation_metrics.get(key, 0) + value[key] if isinstance(value[key], (int, float)) else value[key]
+                reconciliation_metrics["reconciliation_decisions"] = reconciliation_metrics.get("reconciliation_decisions", 0) + len(value.get("decisions", []))
     return {
         "run_id": run_directory.name, "started_at": started_at, "finished_at": finished_at,
         "runner_error": runner_error,
@@ -373,6 +397,7 @@ def build_summary(
         "new_reviews_written": lifecycle.get("new_reviews_written", 0),
         "changed_reviews_written": lifecycle.get("changed_reviews_written", 0),
         "unchanged_reviews_seen": lifecycle.get("unchanged_reviews_seen", 0),
+        **reconciliation_metrics,
         "total_reviews_per_minute": round(total_reviews / (total_elapsed_seconds / 60), 3) if total_elapsed_seconds else 0.0,
         "complete_store_count": complete_count, "partial_timeout_count": partial_count,
         "partial_limit_count": partial_limit_count, "failed_store_count": len(failed_ids),
@@ -393,5 +418,7 @@ def build_summary(
             "dlq": str(run_directory / "dlq.jsonl"),
             "scroll_metrics": str(run_directory / "scroll_metrics.jsonl"),
             "review_id_trace": str(run_directory / "review_id_trace.jsonl"),
+            "reconciliation_metrics": str(run_directory / "incremental_metrics.json"),
+            "reconciliation_decisions": str(run_directory / "reconciliation_decisions_*.json"),
         },
     }

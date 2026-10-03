@@ -25,6 +25,11 @@ class FailureClassification:
 
 
 STATUS_FAILURES = {
+    CrawlStatus.DEFERRED_LIMITED: FailureClassification("ACCESS_POLICY", "DEFERRED_LIMITED", True),
+    CrawlStatus.DEFERRED_UNKNOWN: FailureClassification("ACCESS_POLICY", "DEFERRED_UNKNOWN", True),
+    CrawlStatus.FAILED_BROWSER: FailureClassification("BROWSER", "FAILED_BROWSER", True),
+    CrawlStatus.FAILED_RUNTIME: FailureClassification("RUNTIME", "FAILED_RUNTIME", True),
+    CrawlStatus.FAILED_PARSE: FailureClassification("EXTRACTION", "FAILED_PARSE", False),
     CrawlStatus.AUTH_REQUIRED: FailureClassification(
         "AUTH", "SIGN_IN_REQUIRED", False
     ),
@@ -73,6 +78,9 @@ def classify_status(status: CrawlStatus | str) -> FailureClassification | None:
         CrawlStatus.COMPLETE,
         CrawlStatus.NO_REVIEWS,
         CrawlStatus.PARTIAL_LIMIT,
+        CrawlStatus.SUCCESS_DOM,
+        CrawlStatus.SUCCESS_NETWORK,
+        CrawlStatus.SUCCESS_HYBRID,
     }:
         return None
     return STATUS_FAILURES.get(status)

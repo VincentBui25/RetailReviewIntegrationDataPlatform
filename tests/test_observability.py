@@ -9,7 +9,7 @@ from crawl_experiment.core.statuses import CrawlStatus
 from crawl_experiment.orchestration.retry_policy import RetryPolicy
 from crawl_experiment.sources.google_maps.crawler import GoogleMapsCrawler
 from crawl_experiment.storage.review_repository import ReviewRepository
-from crawl_experiment.observability.run_artifacts import CrawlArtifacts
+from crawl_experiment.observability.run_artifacts import CrawlArtifacts, build_summary
 from crawl_experiment.runners.full_crawl_runner import create_run_directory
 from tests.test_extractor import Card
 
@@ -132,6 +132,34 @@ def test_review_access_failure_taxonomy_and_no_reviews_success():
     )
     assert (auth.category, auth.reason_code) == ("AUTH", "SIGN_IN_REQUIRED")
     assert classify_status(CrawlStatus.NO_REVIEWS) is None
+
+
+def test_current_access_policy_status_taxonomy():
+    for status in (CrawlStatus.SUCCESS_DOM, CrawlStatus.SUCCESS_NETWORK, CrawlStatus.SUCCESS_HYBRID):
+        assert classify_status(status) is None
+    for status in (CrawlStatus.DEFERRED_LIMITED, CrawlStatus.DEFERRED_UNKNOWN):
+        classification = classify_status(status)
+        assert classification.category == "ACCESS_POLICY"
+        assert classification.retryable is True
+    assert classify_status(CrawlStatus.FAILED_BROWSER).category == "BROWSER"
+    assert classify_status(CrawlStatus.FAILED_RUNTIME).category == "RUNTIME"
+    assert classify_status(CrawlStatus.FAILED_PARSE).category == "EXTRACTION"
+
+
+def test_deferred_reconciliation_status_builds_summary(tmp_path):
+    store = Store("deferred", "Deferred", "Deferred", "retailer")
+    run_directory = create_run_directory(tmp_path)
+    artifacts = CrawlArtifacts(run_directory, "start", stores=(store,))
+    artifacts.on_access_deferred(store, {
+        "job_status": "DEFERRED_LIMITED", "access_state": "LIMITED",
+        "attempt_number": 1, "backoff_seconds": 60,
+    })
+    summary = build_summary(
+        run_directory, started_at="start", finished_at="finish",
+        stores=(store,), timeout_seconds=30, max_scrolls=2,
+    )
+    assert summary["stores"][0]["status"] == "DEFERRED_LIMITED"
+    assert summary["failed_store_count"] == 0
 
 
 def test_sort_failure_is_dead_lettered_once_and_complete_is_not(tmp_path):

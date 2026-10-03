@@ -83,7 +83,7 @@ def test_state_unique_key_and_batch_lookup_persist_across_runs(tmp_path):
     with sqlite3.connect(tmp_path / "state" / "crawler_state.sqlite3") as connection:
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(
-                "INSERT INTO review_state VALUES(?,?,?,?,?,?,?,?)",
+                    "INSERT INTO review_state (source,source_review_id,store_id,content_hash,first_seen_at,last_seen_at,first_seen_run_id,last_seen_run_id) VALUES(?,?,?,?,?,?,?,?)",
                 ("google_maps", "r1", "other", "hash", "a", "b", "x", "y"),
             )
 

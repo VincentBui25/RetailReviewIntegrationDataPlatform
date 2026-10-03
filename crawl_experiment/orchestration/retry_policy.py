@@ -93,3 +93,23 @@ class RetryPolicy:
             )
             return RetryDecision(action, CrawlStatus.NAVIGATION_FAILED)
         return RetryDecision(RetryAction.STOP, CrawlStatus.ERROR)
+
+
+class SmokeRetryPolicy(RetryPolicy):
+    """Smoke/benchmark policy: one fresh-browser attempt per tagged LIMITED place."""
+    def __init__(self):
+        self.default_policy = RetryPolicy()
+        # Crawlee's request ceiling needs room for one additional LIMITED retry
+        # after ordinary navigation retries. All other decisions delegate to
+        # the unchanged default policy, so their budgets do not increase.
+        super().__init__(max_session_retries=self.default_policy.max_session_retries + 1)
+        self.limited_retried_stores = set()
+
+    def decide(self, error, attempt=0):
+        store_id = getattr(error, "smoke_store_id", None)
+        if isinstance(error, LimitedReviewViewError) and store_id is not None:
+            if store_id not in self.limited_retried_stores:
+                self.limited_retried_stores.add(store_id)
+                return RetryDecision(RetryAction.RETRY_FRESH_SESSION, CrawlStatus.LIMITED,
+                                     reason="smoke_limited_review_retry")
+        return self.default_policy.decide(error, attempt)
