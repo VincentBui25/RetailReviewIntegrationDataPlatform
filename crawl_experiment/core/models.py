@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from .statuses import CrawlStatus
 
@@ -14,6 +14,29 @@ class Store:
     query: str
     retailer: str | None = None
     expected_address: str | None = None
+
+
+# Existing Store is the immutable per-place input job. An alias avoids changing
+# constructors, JSON serialization, or callers while making that role explicit.
+CrawlJob = Store
+
+
+class ResolutionResult(TypedDict, total=False):
+    """Existing dictionary/CSV contract, including incomplete error evidence."""
+    place_key: str
+    overture_name: str | None
+    google_name: str | None
+    google_place_id: str | None
+    google_id_kind: str | None
+    coordinate_distance_m: float | None
+    name_similarity: float | None
+    address_similarity: float | None
+    match_score: float | None
+    status: Literal["RESOLVED", "AMBIGUOUS", "NOT_FOUND", "ERROR"]
+    resolved_url: str | None
+    google_address: str | None
+    elapsed_seconds: float
+    error: str | None
 
 
 @dataclass(frozen=True)
