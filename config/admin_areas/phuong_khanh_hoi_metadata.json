@@ -1,0 +1,31 @@
+{
+  "admin_area_id": "vn-hcm-ward-27265",
+  "admin_area_name": "Phường Khánh Hội, Thành phố Hồ Chí Minh, Việt Nam",
+  "official_unit_code": "27265",
+  "admin_level": "6",
+  "valid_from": "2025-07-01",
+  "valid_to": null,
+  "is_current": true,
+  "source": "OpenStreetMap via Nominatim",
+  "source_url": "https://nominatim.openstreetmap.org/search?q=Ph%C6%B0%E1%BB%9Dng+Kh%C3%A1nh+H%E1%BB%99i%2C+Th%C3%A0nh+ph%E1%BB%91+H%E1%BB%93+Ch%C3%AD+Minh%2C+Vi%E1%BB%87t+Nam&format=geojson&polygon_geojson=1&addressdetails=1&extratags=1&namedetails=1&limit=5",
+  "source_object_url": "https://www.openstreetmap.org/relation/19260589",
+  "legal_basis": "Resolution 1685/NQ-UBTVQH15 (2025)",
+  "legal_source_url": "https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-quyet-so-1685-nq-ubtvqh15-sap-xep-cac-dvhc-cap-xa-cua-thanh-pho-ho-chi-minh-nam-2025-119250616211341304.htm",
+  "retrieval_date": "2026-10-01",
+  "license": "© OpenStreetMap contributors; Open Database License (ODbL)",
+  "crs": "EPSG:4326 (GeoJSON RFC 7946)",
+  "osm_metadata": {
+    "display_name": "Phường Khánh Hội, Thành phố Hồ Chí Minh, 72822, Việt Nam",
+    "population_date": "2025-07-01",
+    "boundary_type": "administrative"
+  },
+  "validation": {
+    "geometry_type": "Polygon",
+    "geometry_valid": true,
+    "crs_is_epsg_4326": true,
+    "area_non_zero": true,
+    "admin_area_name_matches": true,
+    "current_metadata_valid": true,
+    "approximate_area_km2": 1.059391912109375
+  }
+}

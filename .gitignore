@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# Testing
+.pytest_cache/
+.test-tmp/
+pytest-temp-*/
+feature-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment / secrets
+.env
+
+# Data artifacts (large crawl outputs, browser state)
+data/
+/output/smoke_test/
+/output/crawler_benchmark/
+experiments/**/output/
+
+# Local crawler state and generated data
+*.sqlite
+*.sqlite3
+*.db
+**/checkpoints/
+**/logs/
+*.log
+*.parquet
+
+# Browser profiles, sessions, screenshots
+downloaded_files/
+archived_logs/
+latest_logs/
+*.lock
+
+# Node (upstream experiment dependencies)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+# Documentation
+AGENTS.md
