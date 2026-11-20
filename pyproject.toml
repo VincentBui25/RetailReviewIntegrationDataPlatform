@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fnb-data-platform"
+version = "0.1.0"
+description = "Minimal F&B data engineering workspace"
+requires-python = ">=3.11"
+dependencies = ["numpy==1.26.4", "pyarrow==23.0.1", "shapely==2.1.2"]
+
+[project.optional-dependencies]
+download = ["overturemaps==1.0.2"]
+test = ["pytest==9.1.1", "httpx==0.28.1", "beautifulsoup4==4.15.0", "duckdb==1.5.5", "playwright==1.42.0", "selenium==4.49.0", "psutil==7.2.2"]
+dbt = ["dbt-core==1.11.17", "dbt-duckdb==1.11.1", "duckdb==1.5.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

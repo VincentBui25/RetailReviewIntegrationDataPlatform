@@ -1,0 +1,28 @@
+version: 2
+sources:
+  - name: pinned_reviews
+    tables:
+      - name: current
+        config:
+          enabled: "{{ var('reviews_enabled', false) }}"
+          external_location: "{{ var('reviews_current_path', '') }}"
+  - name: pinned
+    tables:
+      - name: overture
+        config:
+          external_location: "{{ var('overture_path') }}"
+      - name: google
+        config:
+          external_location: "{{ var('google_path') }}"
+      - name: category_normalization
+        config:
+          external_location: "{{ var('category_normalization_path') }}"
+      - name: category_audit
+        config:
+          external_location: "{{ var('category_audit_path') }}"
+      - name: effective_mapping
+        config:
+          external_location: "{{ var('effective_mapping_path') }}"
+      - name: store_registry
+        config:
+          external_location: "{{ var('store_registry_path') }}"

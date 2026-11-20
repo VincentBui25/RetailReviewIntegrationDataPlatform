@@ -1,0 +1,8 @@
+fnb_business_analytics:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FNB_DBT_DATABASE') }}"
+      schema: business_analytics
+      threads: 1

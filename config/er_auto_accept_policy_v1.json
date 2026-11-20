@@ -1,0 +1,15 @@
+{
+  "policy_version": "er-auto-accept-v1",
+  "execution_mode": "SHADOW_ONLY",
+  "candidate_entry": ["ER_V3_MATCH_CANDIDATE", "AUDITED_AI_MATCH"],
+  "required_v3_signals": ["name", "address", "location"],
+  "required_signal_value": "SUPPORT",
+  "require_strong_address_agreement": true,
+  "require_specific_address_agreement": true,
+  "block_shared_google_identity": true,
+  "resolve_multiple_candidates_with": "CURRENT_HUMAN_NON_MATCH_ONLY",
+  "block_any_metadata_conflict": true,
+  "ai_unsure_stays_pending": true,
+  "ai_non_match_never_rejects": true,
+  "canonical_identity_merge": false
+}

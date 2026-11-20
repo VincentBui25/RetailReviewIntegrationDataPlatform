@@ -1,0 +1,18 @@
+version: 2
+sources:
+  - name: published
+    tables:
+      - name: stores
+        config: {external_location: "{{ var('gold_stores') }}"}
+      - name: mappings
+        config: {external_location: "{{ var('gold_mappings') }}"}
+      - name: attached
+        config: {external_location: "{{ var('gold_attached') }}"}
+      - name: unmatched
+        config: {external_location: "{{ var('gold_unmatched') }}"}
+      - name: places
+        config: {external_location: "{{ var('google_places') }}"}
+      - name: business
+        config: {external_location: "{{ var('business_mart') }}"}
+      - name: areas
+        config: {external_location: "{{ var('area_reference') }}"}

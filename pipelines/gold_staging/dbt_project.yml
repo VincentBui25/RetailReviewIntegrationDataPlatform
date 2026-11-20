@@ -1,0 +1,11 @@
+name: fnb_gold_staging
+version: '1.0.0'
+config-version: 2
+profile: fnb_gold_staging
+model-paths: [models]
+test-paths: [tests]
+models:
+  fnb_gold_staging:
+    +materialized: table
+flags:
+  send_anonymous_usage_stats: false

@@ -1,0 +1,53 @@
+version: 2
+models:
+  - name: dim_area
+    columns:
+      - name: area_id
+        data_tests: [unique, not_null]
+      - name: ward_code
+        data_tests: [unique, not_null]
+      - name: reference_provenance_json
+        data_tests: [not_null]
+  - name: fact_area_demographics
+    columns:
+      - name: area_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_area')
+                field: area_id
+      - name: source_version
+        data_tests: [not_null]
+      - name: provenance_json
+        data_tests: [not_null]
+  - name: store_area_mapping
+    columns:
+      - name: store_id
+        data_tests: [unique, not_null]
+      - name: area_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_area')
+                field: area_id
+      - name: assignment_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ADDRESS, SPATIAL, UNRESOLVED]
+      - name: assignment_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [RESOLVED, AMBIGUOUS, AREA_CONFLICT, UNRESOLVED]
+      - name: provenance_json
+        data_tests: [not_null]
+  - name: mart_fnb_by_area
+    columns:
+      - name: area_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_area')
+                field: area_id
