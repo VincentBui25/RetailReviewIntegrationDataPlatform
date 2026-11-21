@@ -1,0 +1,13 @@
+version: 2
+sources:
+  - name: pinned_area
+    tables:
+      - name: reference
+        config:
+          external_location: "{{ var('reference_path') }}"
+      - name: catalog
+        config:
+          external_location: "{{ var('catalog_path') }}"
+      - name: assignment
+        config:
+          external_location: "{{ var('assignment_path') }}"

@@ -1,0 +1,11 @@
+name: fnb_business_analytics
+version: '1.0.0'
+config-version: 2
+profile: fnb_business_analytics
+model-paths: [models]
+test-paths: [tests]
+models:
+  fnb_business_analytics:
+    +materialized: table
+flags:
+  send_anonymous_usage_stats: false

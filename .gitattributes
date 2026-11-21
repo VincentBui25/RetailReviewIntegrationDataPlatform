@@ -1,0 +1,5 @@
+config/admin_areas/phuong_khanh_hoi.geojson -whitespace
+config/admin_areas/phuong_khanh_hoi_metadata.json -whitespace
+
+docker/postgres/*.sh text eol=lf
+docker/postgres/migrations/*.sql text eol=lf

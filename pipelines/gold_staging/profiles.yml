@@ -1,0 +1,8 @@
+fnb_gold_staging:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FNB_DBT_DATABASE') }}"
+      schema: gold_staging
+      threads: 1

@@ -1,0 +1,59 @@
+version: 2
+models:
+  - name: review_attachment
+    columns:
+      - name: logical_review_id
+        data_tests: [unique, not_null]
+      - name: source_review_id
+        data_tests: [not_null]
+      - name: current_observation_id
+        data_tests: [not_null]
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_id
+  - name: unmatched_review_accounting
+    columns:
+      - name: logical_review_id
+        data_tests: [unique, not_null]
+      - name: source_review_id
+        data_tests: [not_null]
+  - name: dim_store
+    columns:
+      - name: store_id
+        data_tests: [unique, not_null]
+      - name: overture_id
+        data_tests: [unique, not_null]
+      - name: identity_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [AUTO_ACCEPTED, HUMAN_ACCEPTED, SOURCE_ONLY]
+      - name: field_provenance_json
+        data_tests: [not_null]
+      - name: canonical_category
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [restaurant, cafe_coffee, beverage, bakery_dessert, fast_food, bar, other_food, non_fnb, unknown]
+  - name: store_source_mapping
+    columns:
+      - name: store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_id
+  - name: link_accounting
+    columns:
+      - name: overture_store_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_store')
+                field: store_id

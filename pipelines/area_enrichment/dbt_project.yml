@@ -1,0 +1,11 @@
+name: fnb_area_enrichment
+version: '1.0.0'
+config-version: 2
+profile: fnb_area_enrichment
+model-paths: [models]
+test-paths: [tests]
+models:
+  fnb_area_enrichment:
+    +materialized: table
+flags:
+  send_anonymous_usage_stats: false

@@ -1,0 +1,80 @@
+version: 2
+models:
+  - name: dim_store
+    columns:
+      - name: store_key
+        data_tests: [unique, not_null]
+      - name: canonical_store_id
+        data_tests: [unique, not_null]
+  - name: dim_category
+    columns:
+      - name: category_key
+        data_tests: [unique, not_null]
+      - name: category_business_key
+        data_tests: [unique, not_null]
+  - name: dim_area
+    columns:
+      - name: area_key
+        data_tests: [unique, not_null]
+      - name: area_business_key
+        data_tests: [unique, not_null]
+      - name: boundary_sha256
+        data_tests: [not_null]
+      - name: reference_release_id
+        data_tests: [not_null]
+      - name: reference_year
+        data_tests: [not_null]
+      - name: reference_source_version
+        data_tests: [not_null]
+      - name: reference_population_basis
+        data_tests: [not_null]
+      - name: reference_quality_status
+        data_tests: [not_null]
+  - name: dim_date
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+      - name: full_date
+        data_tests: [unique, not_null]
+  - name: fact_store_snapshot
+    columns:
+      - name: store_key
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: "ref('dim_store')", field: store_key}}
+      - name: category_key
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: "ref('dim_category')", field: category_key}}
+      - name: area_key
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: "ref('dim_area')", field: area_key}}
+  - name: fact_review
+    columns:
+      - name: logical_review_id
+        data_tests: [unique, not_null]
+      - name: source
+        data_tests: [not_null]
+      - name: source_review_id
+        data_tests: [not_null]
+      - name: google_id_kind
+        data_tests:
+          - not_null
+          - accepted_values: {arguments: {values: [data_id, place_id]}}
+      - name: google_identity_value
+        data_tests: [not_null]
+      - name: source_release_id
+        data_tests: [not_null]
+      - name: store_key
+        data_tests:
+          - relationships: {arguments: {to: "ref('dim_store')", field: store_key}}
+      - name: review_date_key
+        data_tests:
+          - relationships: {arguments: {to: "ref('dim_date')", field: date_key}}
+  - name: bridge_store_source
+    columns:
+      - name: store_key
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: "ref('dim_store')", field: store_key}}

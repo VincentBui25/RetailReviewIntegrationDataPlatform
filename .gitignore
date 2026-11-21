@@ -55,3 +55,24 @@ node_modules/
 Thumbs.db
 # Documentation
 AGENTS.md
+
+# M5 analytics: local data, secrets and generated artifacts.
+/.local/
+/.auth/
+.env.*
+!.env.example
+*.duckdb
+*.duckdb.wal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+**/profiles/
+**/browser_profiles/
+**/cookies*.json
+**/Cookies
+**/Login Data*
+**/Local State
+/pipelines/**/target/
+/pipelines/**/dbt_packages/
+/pipelines/**/.user.yml

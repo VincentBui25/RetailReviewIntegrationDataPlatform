@@ -1,0 +1,8 @@
+fnb_area_enrichment:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FNB_DBT_DATABASE') }}"
+      schema: area_staging
+      threads: 1

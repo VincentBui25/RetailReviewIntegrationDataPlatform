@@ -1,0 +1,10 @@
+fnb_dimensional:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FNB_WAREHOUSE_DUCKDB') }}"
+      schema: dimensional
+      threads: 1
+      settings:
+        TimeZone: UTC

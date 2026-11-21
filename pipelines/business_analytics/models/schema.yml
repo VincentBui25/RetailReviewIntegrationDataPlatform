@@ -1,0 +1,19 @@
+version: 2
+models:
+  - name: mart_store_business
+    columns:
+      - name: store_id
+        data_tests: [unique, not_null]
+      - name: analysis_category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [restaurant, cafe_coffee, beverage, bakery_dessert, fast_food, bar, other_food, unknown]
+      - name: verification_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [HUMAN_VERIFIED_LINK, MACHINE_ACCEPTED_LINK, UNVERIFIED_SOURCE_ONLY]
+      - name: area_id
+        data_tests: [not_null]

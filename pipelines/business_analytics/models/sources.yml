@@ -1,0 +1,13 @@
+version: 2
+sources:
+  - name: pinned
+    tables:
+      - name: gold_stores
+        config:
+          external_location: "{{ var('gold_stores_path') }}"
+      - name: category_normalization
+        config:
+          external_location: "{{ var('category_normalization_path') }}"
+      - name: store_area
+        config:
+          external_location: "{{ var('store_area_path') }}"
